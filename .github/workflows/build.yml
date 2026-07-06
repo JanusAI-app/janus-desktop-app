@@ -1,0 +1,51 @@
+name: Janus bauen (Mac · Windows · Linux)
+
+# Läuft, sobald ein Versions-Tag (z. B. v1.0.1) hochgeladen wird
+# oder manuell über den "Run workflow"-Knopf.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Pakete installieren
+        run: npm install
+
+      - name: Mac bauen
+        if: matrix.os == 'macos-latest'
+        run: npm run build:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Windows bauen
+        if: matrix.os == 'windows-latest'
+        run: npm run build:win
+
+      - name: Linux bauen
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run build:linux
+
+      - name: An das Release anhängen
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
