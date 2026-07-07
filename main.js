@@ -1,7 +1,7 @@
 // Janus Desktop – natives Programm-Gerüst (Electron).
 // Aktuell: zeigt die Janus-Web-App in einem eigenen Fenster (ein Code für alles).
 // Später: hier kommt die Computersteuerung rein (Maus/Tastatur/Bildschirm über IPC).
-const { app, BrowserWindow, shell, Menu, session, desktopCapturer, screen, ipcMain } =
+const { app, BrowserWindow, shell, Menu, session, desktopCapturer, screen, ipcMain, systemPreferences } =
   require("electron");
 const path = require("path");
 
@@ -102,6 +102,10 @@ app.whenReady().then(() => {
     return { width: d.size.width, height: d.size.height };
   });
   ipcMain.handle("janus:screenshot", async () => {
+    // Ohne Bildschirmaufnahme-Freigabe klar melden (statt schwarzem/leerem Bild).
+    if (systemPreferences.getMediaAccessStatus("screen") !== "granted") {
+      throw new Error("SCREEN_PERM");
+    }
     const d = screen.getPrimaryDisplay();
     const { width, height } = d.size;
     const sources = await desktopCapturer.getSources({
@@ -109,10 +113,34 @@ app.whenReady().then(() => {
       thumbnailSize: { width, height },
     });
     const src = sources.find((s) => String(s.display_id) === String(d.id)) || sources[0];
-    if (!src) throw new Error("Kein Bildschirm gefunden");
+    if (!src) throw new Error("SCREEN_PERM");
     return src.thumbnail.toDataURL();
   });
+  // Freigabe-Status abfragen / Einstellungen öffnen / Bedienungshilfen-Dialog auslösen
+  ipcMain.handle("janus:perms", () => ({
+    screen: systemPreferences.getMediaAccessStatus("screen"),
+    accessibility: systemPreferences.isTrustedAccessibilityClient(false),
+  }));
+  ipcMain.handle("janus:openSettings", (_e, which) => {
+    const url =
+      which === "accessibility"
+        ? "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        : "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
+    shell.openExternal(url);
+  });
+  ipcMain.handle("janus:askAccessibility", () => systemPreferences.isTrustedAccessibilityClient(true));
+  // Löst den Bildschirmaufnahme-Dialog aus bzw. registriert die aktuelle App in der Liste.
+  ipcMain.handle("janus:requestScreen", async () => {
+    try {
+      await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: 4, height: 4 } });
+    } catch {}
+    return systemPreferences.getMediaAccessStatus("screen");
+  });
   ipcMain.handle("janus:act", async (_e, action) => {
+    // Ohne Bedienungshilfen-Freigabe NICHT nut-js aufrufen (sonst Absturz).
+    if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+      return { ok: false, error: "ACC_PERM" };
+    }
     const nut = require("@nut-tree-fork/nut-js");
     const { mouse, keyboard, Point, Button, sleep } = nut;
     mouse.config.mouseSpeed = 2500;

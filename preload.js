@@ -13,4 +13,9 @@ contextBridge.exposeInMainWorld("janusDesktop", {
   act: (action) => ipcRenderer.invoke("janus:act", action),
   // Fenster in eine schmale, immer-obenauf-Leiste verwandeln (während der Steuerung)
   controlBar: (on) => ipcRenderer.invoke("janus:controlBar", on),
+  // Freigaben: Status prüfen, Einstellungen öffnen, Bedienungshilfen-Dialog auslösen
+  perms: () => ipcRenderer.invoke("janus:perms"),
+  openSettings: (which) => ipcRenderer.invoke("janus:openSettings", which),
+  askAccessibility: () => ipcRenderer.invoke("janus:askAccessibility"),
+  requestScreen: () => ipcRenderer.invoke("janus:requestScreen"),
 });
