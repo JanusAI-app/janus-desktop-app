@@ -6,7 +6,9 @@ const { app, BrowserWindow, shell, Menu, session, desktopCapturer, screen, ipcMa
 const path = require("path");
 
 // Tastenkürzel/Einzeltasten auf nut-js-Keys abbilden (für die Computersteuerung).
-function pressCombo(nut, spec) {
+// Unbekannte Einzelzeichen (Ziffern, *, +, Buchstaben, Wörter) werden direkt getippt,
+// damit nichts verschluckt wird.
+async function pressCombo(nut, spec) {
   const { keyboard, Key } = nut;
   const map = {
     enter: Key.Enter, return: Key.Enter, tab: Key.Tab, escape: Key.Escape, esc: Key.Escape,
@@ -16,13 +18,27 @@ function pressCombo(nut, spec) {
     cmd: Key.LeftSuper, command: Key.LeftSuper, meta: Key.LeftSuper, super: Key.LeftSuper,
     ctrl: Key.LeftControl, control: Key.LeftControl, strg: Key.LeftControl,
     alt: Key.LeftAlt, option: Key.LeftAlt, shift: Key.LeftShift,
-    a: Key.A, b: Key.B, c: Key.C, d: Key.D, e: Key.E, f: Key.F, g: Key.G, l: Key.L,
-    n: Key.N, r: Key.R, s: Key.S, t: Key.T, v: Key.V, w: Key.W, x: Key.X, z: Key.Z,
   };
-  const parts = String(spec).toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
+  const raw = String(spec);
+  const parts = raw.toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
+  if (parts.length <= 1) {
+    const key = parts.length === 1 ? map[parts[0]] : undefined;
+    if (key === undefined) {
+      // Kein bekannter Sondertasten-Name -> Zeichen einfach tippen (7, *, a, Wort …)
+      await keyboard.type(raw);
+      return;
+    }
+    await keyboard.pressKey(key);
+    await keyboard.releaseKey(key);
+    return;
+  }
   const keys = parts.map((p) => map[p]).filter((k) => k !== undefined);
-  if (!keys.length) return Promise.resolve();
-  return keyboard.pressKey(...keys).then(() => keyboard.releaseKey(...keys));
+  if (!keys.length) {
+    await keyboard.type(raw);
+    return;
+  }
+  await keyboard.pressKey(...keys);
+  await keyboard.releaseKey(...keys);
 }
 
 const BASE = process.env.JANUS_URL || "https://janus-inky.vercel.app";
@@ -144,7 +160,7 @@ app.whenReady().then(() => {
     const nut = require("@nut-tree-fork/nut-js");
     const { mouse, keyboard, Point, Button, sleep } = nut;
     mouse.config.mouseSpeed = 3000;
-    keyboard.config.autoDelayMs = 4;
+    keyboard.config.autoDelayMs = 30;
 
     async function runOne(a) {
       const move = async () => {
@@ -205,6 +221,9 @@ app.whenReady().then(() => {
       try {
         win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       } catch {}
+      // Mindestgröße aufheben, sonst wird die schmale Leiste auf 380×600 hochgeklemmt!
+      win.setMinimumSize(1, 1);
+      win.setResizable(false);
       // Schmale Leiste unten-mittig – stört den Bildschirm kaum.
       win.setBounds({
         x: Math.round(wa.x + (wa.width - w) / 2),
@@ -214,6 +233,8 @@ app.whenReady().then(() => {
       });
     } else {
       win.setAlwaysOnTop(false);
+      win.setResizable(true);
+      win.setMinimumSize(380, 600);
       try {
         win.setVisibleOnAllWorkspaces(false);
       } catch {}
