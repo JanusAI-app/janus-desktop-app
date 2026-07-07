@@ -13,12 +13,25 @@
   "build": {
     "appId": "de.janus.app",
     "productName": "Janus",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "build/**"],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "build/**",
+      "node_modules/**/*"
+    ],
     "afterPack": "./afterPack.js",
-    "dmg": { "artifactName": "Janus.dmg" },
-    "nsis": { "artifactName": "Janus-Setup.exe" },
-    "appImage": { "artifactName": "Janus.AppImage" },
+    "dmg": {
+      "artifactName": "Janus.dmg"
+    },
+    "nsis": {
+      "artifactName": "Janus-Setup.exe"
+    },
+    "appImage": {
+      "artifactName": "Janus.AppImage"
+    },
     "mac": {
       "target": "dmg",
       "icon": "build/icon.icns",
@@ -41,5 +54,8 @@
   "devDependencies": {
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6"
   }
 }

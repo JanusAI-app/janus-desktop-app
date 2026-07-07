@@ -1,8 +1,29 @@
 // Janus Desktop – natives Programm-Gerüst (Electron).
 // Aktuell: zeigt die Janus-Web-App in einem eigenen Fenster (ein Code für alles).
 // Später: hier kommt die Computersteuerung rein (Maus/Tastatur/Bildschirm über IPC).
-const { app, BrowserWindow, shell, Menu, session } = require("electron");
+const { app, BrowserWindow, shell, Menu, session, desktopCapturer, screen, ipcMain } =
+  require("electron");
 const path = require("path");
+
+// Tastenkürzel/Einzeltasten auf nut-js-Keys abbilden (für die Computersteuerung).
+function pressCombo(nut, spec) {
+  const { keyboard, Key } = nut;
+  const map = {
+    enter: Key.Enter, return: Key.Enter, tab: Key.Tab, escape: Key.Escape, esc: Key.Escape,
+    space: Key.Space, leer: Key.Space, backspace: Key.Backspace, delete: Key.Delete, entf: Key.Delete,
+    up: Key.Up, down: Key.Down, left: Key.Left, right: Key.Right,
+    hoch: Key.Up, runter: Key.Down, links: Key.Left, rechts: Key.Right,
+    cmd: Key.LeftSuper, command: Key.LeftSuper, meta: Key.LeftSuper, super: Key.LeftSuper,
+    ctrl: Key.LeftControl, control: Key.LeftControl, strg: Key.LeftControl,
+    alt: Key.LeftAlt, option: Key.LeftAlt, shift: Key.LeftShift,
+    a: Key.A, b: Key.B, c: Key.C, d: Key.D, e: Key.E, f: Key.F, g: Key.G, l: Key.L,
+    n: Key.N, r: Key.R, s: Key.S, t: Key.T, v: Key.V, w: Key.W, x: Key.X, z: Key.Z,
+  };
+  const parts = String(spec).toLowerCase().split("+").map((s) => s.trim()).filter(Boolean);
+  const keys = parts.map((p) => map[p]).filter((k) => k !== undefined);
+  if (!keys.length) return Promise.resolve();
+  return keyboard.pressKey(...keys).then(() => keyboard.releaseKey(...keys));
+}
 
 const BASE = process.env.JANUS_URL || "https://janus-inky.vercel.app";
 // Die App startet direkt im Produkt (Dashboard bzw. Login), NICHT auf der Website.
@@ -25,6 +46,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: true,
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
@@ -71,6 +93,59 @@ app.whenReady().then(() => {
     callback(permission === "media" || permission === "audioCapture");
   });
   session.defaultSession.setPermissionCheckHandler(() => true);
+
+  // ── Computersteuerung ──────────────────────────────────────────────
+  // WICHTIG: "act" wird von der App NUR nach ausdrücklicher Nutzer-Bestätigung
+  // aufgerufen. Hier passiert die Ausführung, die Freigabe passiert in der Oberfläche.
+  ipcMain.handle("janus:size", () => {
+    const d = screen.getPrimaryDisplay();
+    return { width: d.size.width, height: d.size.height };
+  });
+  ipcMain.handle("janus:screenshot", async () => {
+    const d = screen.getPrimaryDisplay();
+    const { width, height } = d.size;
+    const sources = await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: { width, height },
+    });
+    const src = sources.find((s) => String(s.display_id) === String(d.id)) || sources[0];
+    if (!src) throw new Error("Kein Bildschirm gefunden");
+    return src.thumbnail.toDataURL();
+  });
+  ipcMain.handle("janus:act", async (_e, action) => {
+    const nut = require("@nut-tree-fork/nut-js");
+    const { mouse, keyboard, Point, Button, sleep } = nut;
+    mouse.config.mouseSpeed = 2500;
+    keyboard.config.autoDelayMs = 6;
+    const a = action || {};
+    const move = async () => {
+      if (typeof a.x === "number" && typeof a.y === "number") {
+        await mouse.setPosition(new Point(Math.round(a.x), Math.round(a.y)));
+      }
+    };
+    try {
+      switch (a.typ) {
+        case "klick": await move(); await mouse.leftClick(); break;
+        case "doppelklick": await move(); await mouse.doubleClick(Button.LEFT); break;
+        case "rechtsklick": await move(); await mouse.rightClick(); break;
+        case "bewege": await move(); break;
+        case "tippe": await keyboard.type(String(a.text || "")); break;
+        case "taste": await pressCombo(nut, a.taste || ""); break;
+        case "scrolle": {
+          const n = Math.max(1, Math.min(30, Number(a.betrag) || 5)) * 100;
+          if (a.richtung === "hoch") await mouse.scrollUp(n);
+          else await mouse.scrollDown(n);
+          break;
+        }
+        case "warte": await sleep(Math.max(100, Math.min(4000, Number(a.ms) || 500))); break;
+        case "fertig": break;
+        default: return { ok: false, error: "Unbekannte Aktion" };
+      }
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: String(err && err.message ? err.message : err) };
+    }
+  });
 
   // Minimales Menü (Kopieren/Einfügen/Neu laden funktionieren so trotzdem).
   const template = [
