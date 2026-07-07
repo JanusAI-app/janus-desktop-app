@@ -23,7 +23,10 @@
       "target": "dmg",
       "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
-      "identity": null
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Janus nutzt dein Mikrofon für den Sprachmodus (mit Janus sprechen)."
+      }
     },
     "win": {
       "target": "nsis",

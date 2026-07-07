@@ -49,6 +49,12 @@ app.whenReady().then(() => {
     cb({ requestHeaders: details.requestHeaders });
   });
 
+  // Mikrofon-Zugriff für den Sprachmodus (Kugel) erlauben – sonst blockt Electron es.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === "media" || permission === "audioCapture");
+  });
+  session.defaultSession.setPermissionCheckHandler(() => true);
+
   // Minimales Menü (Kopieren/Einfügen/Neu laden funktionieren so trotzdem).
   const template = [
     { role: "appMenu" },
