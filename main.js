@@ -143,15 +143,15 @@ app.whenReady().then(() => {
     }
     const nut = require("@nut-tree-fork/nut-js");
     const { mouse, keyboard, Point, Button, sleep } = nut;
-    mouse.config.mouseSpeed = 2500;
-    keyboard.config.autoDelayMs = 6;
-    const a = action || {};
-    const move = async () => {
-      if (typeof a.x === "number" && typeof a.y === "number") {
-        await mouse.setPosition(new Point(Math.round(a.x), Math.round(a.y)));
-      }
-    };
-    try {
+    mouse.config.mouseSpeed = 3000;
+    keyboard.config.autoDelayMs = 4;
+
+    async function runOne(a) {
+      const move = async () => {
+        if (typeof a.x === "number" && typeof a.y === "number") {
+          await mouse.setPosition(new Point(Math.round(a.x), Math.round(a.y)));
+        }
+      };
       switch (a.typ) {
         case "klick": await move(); await mouse.leftClick(); break;
         case "doppelklick": await move(); await mouse.doubleClick(Button.LEFT); break;
@@ -166,8 +166,23 @@ app.whenReady().then(() => {
           break;
         }
         case "warte": await sleep(Math.max(100, Math.min(4000, Number(a.ms) || 500))); break;
-        case "fertig": break;
-        default: return { ok: false, error: "Unbekannte Aktion" };
+        // Unbekannte Einzelaktion einfach überspringen (kein Abbruch der ganzen Aufgabe).
+        default: break;
+      }
+    }
+
+    const a = action || {};
+    try {
+      if (a.typ === "fertig") {
+        // nichts ausführen
+      } else if (a.typ === "mehrere" && Array.isArray(a.aktionen)) {
+        // Bündel harmloser Schritte direkt hier abarbeiten
+        for (const sub of a.aktionen) {
+          await runOne(sub || {});
+          await sleep(70);
+        }
+      } else {
+        await runOne(a);
       }
       return { ok: true };
     } catch (err) {
@@ -184,8 +199,8 @@ app.whenReady().then(() => {
     if (on) {
       if (!barSaved) barSaved = win.getBounds();
       const wa = screen.getPrimaryDisplay().workArea;
-      const w = 520;
-      const h = 52;
+      const w = 540;
+      const h = 60;
       win.setAlwaysOnTop(true, "screen-saver");
       try {
         win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
