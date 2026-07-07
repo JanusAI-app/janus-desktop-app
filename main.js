@@ -37,6 +37,23 @@ function createWindow() {
     shell.openExternal(url);
     return { action: "deny" };
   });
+
+  // Google/Microsoft blockieren ihre Anmeldung in App-Fenstern ("Browser nicht sicher").
+  // Darum öffnen wir DEREN Login im echten System-Browser; danach schreibt unser
+  // Callback die Verbindung (Nutzer per signiertem state erkannt) und das Fenster
+  // kehrt zur Verbindungen-Seite zurück.
+  const divertOAuth = (e, url) => {
+    if (
+      !url.startsWith(BASE) &&
+      /accounts\.google\.com|login\.microsoftonline\.com|login\.live\.com/i.test(url)
+    ) {
+      e.preventDefault();
+      shell.openExternal(url);
+      win.loadURL(BASE + "/dashboard/verbindungen?extern=1", { userAgent: UA });
+    }
+  };
+  win.webContents.on("will-redirect", divertOAuth);
+  win.webContents.on("will-navigate", divertOAuth);
 }
 
 app.whenReady().then(() => {
