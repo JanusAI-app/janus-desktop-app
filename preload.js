@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld("janusDesktop", {
   size: () => ipcRenderer.invoke("janus:size"),
   // EINE Aktion ausführen (Maus/Tastatur) – wird nur nach Nutzer-Bestätigung aufgerufen
   act: (action) => ipcRenderer.invoke("janus:act", action),
+  // Fenster in eine schmale, immer-obenauf-Leiste verwandeln (während der Steuerung)
+  controlBar: (on) => ipcRenderer.invoke("janus:controlBar", on),
 });

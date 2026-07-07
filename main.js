@@ -147,6 +147,34 @@ app.whenReady().then(() => {
     }
   });
 
+  // Fenster in eine schmale Leiste (immer oben) verwandeln – oder zurück in Normalgröße.
+  // So bleibt der Bildschirm des Nutzers sichtbar, während Janus steuert.
+  let barSaved = null;
+  ipcMain.handle("janus:controlBar", (e, on) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (!win) return;
+    if (on) {
+      if (!barSaved) barSaved = win.getBounds();
+      const wa = screen.getPrimaryDisplay().workArea;
+      const w = 680;
+      const h = 96;
+      win.setAlwaysOnTop(true, "screen-saver");
+      try {
+        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      } catch {}
+      win.setBounds({ x: Math.round(wa.x + (wa.width - w) / 2), y: wa.y + 6, width: w, height: h });
+    } else {
+      win.setAlwaysOnTop(false);
+      try {
+        win.setVisibleOnAllWorkspaces(false);
+      } catch {}
+      if (barSaved) {
+        win.setBounds(barSaved);
+        barSaved = null;
+      }
+    }
+  });
+
   // Minimales Menü (Kopieren/Einfügen/Neu laden funktionieren so trotzdem).
   const template = [
     { role: "appMenu" },
