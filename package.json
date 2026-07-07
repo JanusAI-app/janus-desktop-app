@@ -15,6 +15,7 @@
     "productName": "Janus",
     "directories": { "output": "dist" },
     "files": ["main.js", "build/**"],
+    "afterPack": "./afterPack.js",
     "dmg": { "artifactName": "Janus.dmg" },
     "nsis": { "artifactName": "Janus-Setup.exe" },
     "appImage": { "artifactName": "Janus.AppImage" },
