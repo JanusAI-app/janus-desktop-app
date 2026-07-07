@@ -184,13 +184,19 @@ app.whenReady().then(() => {
     if (on) {
       if (!barSaved) barSaved = win.getBounds();
       const wa = screen.getPrimaryDisplay().workArea;
-      const w = 680;
-      const h = 96;
+      const w = 520;
+      const h = 52;
       win.setAlwaysOnTop(true, "screen-saver");
       try {
         win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       } catch {}
-      win.setBounds({ x: Math.round(wa.x + (wa.width - w) / 2), y: wa.y + 6, width: w, height: h });
+      // Schmale Leiste unten-mittig – stört den Bildschirm kaum.
+      win.setBounds({
+        x: Math.round(wa.x + (wa.width - w) / 2),
+        y: wa.y + wa.height - h - 10,
+        width: w,
+        height: h,
+      });
     } else {
       win.setAlwaysOnTop(false);
       try {
